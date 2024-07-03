@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat con Celeste</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #e0f7fa;
+            color: #006064;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #chatbox {
+            width: 100%;
+            max-width: 600px;
+            border: 2px solid #00838f;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+        #chatlog {
+            flex-grow: 1;
+            overflow-y: auto;
+            border-bottom: 2px solid #00838f;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px 10px 0 0;
+            background-color: #e0f2f1;
+        }
+        #userInput {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 2px solid #00838f;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        #controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        #sendBtn, #voiceBtn {
+            padding: 10px;
+            background-color: #00acc1;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 48%;
+            transition: background-color 0.3s ease;
+        }
+        #sendBtn:hover, #voiceBtn:hover {
+            background-color: #007c91;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+        }
+        .user-message {
+            background-color: #b2ebf2;
+            align-self: flex-end;
+            text-align: right;
+            justify-content: flex-end;
+        }
+        .assistant-message {
+            background-color: #80deea;
+            justify-content: flex-start;
+        }
+        .message img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        @media (max-width: 600px) {
+            #controls {
+                flex-direction: column;
+            }
+            #sendBtn, #voiceBtn {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            #voiceBtn {
+                margin-bottom: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="chatbox">
+        <div id="chatlog"></div>
+        <input type="text" id="userInput" placeholder="Escribe tu mensaje aquí...">
+        <div id="controls">
+            <button id="sendBtn">Enviar</button>
+            <button id="voiceBtn">Hablar</button>
+        </div>
+    </div>
+
+    <script>
+        const chatlog = document.getElementById('chatlog');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const voiceBtn = document.getElementById('voiceBtn');
+
+        async function sendMessage(message) {
+            const response = await fetch('/chatbot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    question: message
+                })
+            });
+
+            const data = await response.json();
+            return data.response;
+        }
+
+        function speakMessage(message) {
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.lang = 'es-ES';
+            window.speechSynthesis.speak(utterance);
+        }
+
+        sendBtn.addEventListener('click', async () => {
+            const message = userInput.value;
+            if (message.trim() === '') return;
+
+            // Mostrar el mensaje del usuario en el chatlog
+            const userMessageElement = document.createElement('div');
+            userMessageElement.className = 'message user-message';
+            userMessageElement.textContent = message;
+            chatlog.appendChild(userMessageElement);
+            userInput.value = '';
+
+            // Obtener la respuesta del servidor y mostrarla en el chatlog
+            const reply = await sendMessage(message);
+            const assistantMessageElement = document.createElement('div');
+            assistantMessageElement.className = 'message assistant-message';
+            assistantMessageElement.innerHTML = `<span>${reply}</span>`;
+            chatlog.appendChild(assistantMessageElement);
+
+            // Leer la respuesta en voz alta
+            speakMessage(reply);
+
+            // Desplazar el chatlog hacia abajo
+            chatlog.scrollTop = chatlog.scrollHeight;
+        });
+
+        // Permitir el envío de mensajes con la tecla Enter
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendBtn.click();
+            }
+        });
+
+        // Configurar reconocimiento de voz
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'es-ES';
+
+        recognition.onresult = async (event) => {
+            const transcript = event.results[0][0].transcript;
+            userInput.value = transcript;
+            sendBtn.click();
+        };
+
+        voiceBtn.addEventListener('click', () => {
+            recognition.start();
+        });
+    </script>
+</body>
+</html>
